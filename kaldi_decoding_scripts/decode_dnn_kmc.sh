@@ -9,7 +9,7 @@
 # All these steps will be done automatically if you run the recipe file run-dnn.sh
 
 # Modified 2018 Mirco Ravanelli Univeristé de Montréal - Mila
-
+# Modified 2021 Kevin Chu
 
 cfg_file=$1
 out_folder=$2
@@ -80,7 +80,7 @@ for ck_data in "${arr_ck[@]}"
 do
 
     finalfeats="ark,s,cs: cat $ck_data |"
-    latgen-faster-mapped$thread_string --min-active=$min_active --max-active=$max_active --max-mem=$max_mem --beam=$beam --lattice-beam=$latbeam --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt $alidir/final.mdl $graphdir/HCLG.fst "$finalfeats" "ark:|gzip -c > $dir/lat.$JOB.gz" &> $dir/log/decode.$JOB.log &
+    latgen-faster-mapped$thread_string --min-active=$min_active --max-active=$max_active --max-mem=$max_mem --beam=$beam --lattice-beam=$latbeam --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt $graphdir/../final.mdl $graphdir/HCLG.fst "$finalfeats" "ark:|gzip -c > $dir/lat.$JOB.gz" &> $dir/log/decode.$JOB.log &
     JOB=$((JOB+1))
 done
 wait
@@ -88,7 +88,7 @@ wait
 
 
 # Copy the source model in order for scoring
-cp $alidir/final.mdl $srcdir
+cp $graphdir/../final.mdl $srcdir
 
 if ! $skip_scoring ; then
   [ ! -x $scoring_script ] && \

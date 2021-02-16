@@ -2,6 +2,8 @@
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 #           2014  Brno University of Technology (Author: Karel Vesely)
 # Apache 2.0
+#
+# Modified: Kevin Chu, 1/3/20
 
 # begin configuration section.
 cmd=run.pl
@@ -46,7 +48,7 @@ done
 mkdir -p $dir/scoring/log
 
 # Map reference to 39 phone classes, the silence is optional (.):
-local/timit_norm_trans.pl -i $data/stm -m $phonemap -from 48 -to 39 >$dir/scoring/stm_39phn
+local/timit_norm_trans.pl -i $data/stm -m $phonemap -from 48 -to 40 >$dir/scoring/stm_39phn
 cp $data/glm $dir/scoring/glm_39phn
 
 if [ $stage -le 0 ]; then
@@ -66,7 +68,7 @@ if [ $stage -le 1 ]; then
      mkdir $dir/score_LMWT ';' \
      cat $dir/scoring/LMWT.ctm \| \
      utils/int2sym.pl -f 5 $symtab \| \
-     local/timit_norm_trans.pl -i - -m $phonemap -from 48 -to 39 '>' \
+     local/timit_norm_trans.pl -i - -m $phonemap -from 48 -to 40 '>' \
      $dir/scoring/LMWT.ctm_39phn || exit 1
 fi
 

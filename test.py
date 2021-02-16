@@ -4,6 +4,9 @@
 # Mila, University of Montreal
 # October 2018
 ##########################################################
+# test.py (based on run_exp.py)
+# Modified by: Kevin Chu
+# Last Modified: 1/5/20
 
 
 from __future__ import print_function
@@ -191,230 +194,8 @@ fea_dict = []
 lab_dict = []
 arch_dict = []
 
-
-# --------TRAINING LOOP--------#
-for ep in range(N_ep):
-
-    tr_loss_tot = 0
-    tr_error_tot = 0
-    tr_time_tot = 0
-    val_time_tot = 0
-
-    print(
-        "------------------------------ Epoch %s / %s ------------------------------"
-        % (format(ep, N_ep_str_format), format(N_ep - 1, N_ep_str_format))
-    )
-
-    for tr_data in tr_data_lst:
-
-        # Compute the total number of chunks for each training epoch
-        N_ck_tr = compute_n_chunks(out_folder, tr_data, ep, N_ep_str_format, "train")
-        N_ck_str_format = "0" + str(max(math.ceil(np.log10(N_ck_tr)), 1)) + "d"
-
-        # ***Epoch training***
-        for ck in range(N_ck_tr):
-
-            # paths of the output files (info,model,chunk_specific cfg file)
-            info_file = (
-                out_folder
-                + "/exp_files/train_"
-                + tr_data
-                + "_ep"
-                + format(ep, N_ep_str_format)
-                + "_ck"
-                + format(ck, N_ck_str_format)
-                + ".info"
-            )
-
-            if ep + ck == 0:
-                model_files_past = {}
-            else:
-                model_files_past = model_files
-
-            model_files = {}
-            for arch in pt_files.keys():
-                model_files[arch] = info_file.replace(".info", "_" + arch + ".pkl")
-
-            config_chunk_file = (
-                out_folder
-                + "/exp_files/train_"
-                + tr_data
-                + "_ep"
-                + format(ep, N_ep_str_format)
-                + "_ck"
-                + format(ck, N_ck_str_format)
-                + ".cfg"
-            )
-
-            # update learning rate in the cfg file (if needed)
-            change_lr_cfg(config_chunk_file, lr, ep)
-
-            # if this chunk has not already been processed, do training...
-            if not (os.path.exists(info_file)):
-
-                print("Training %s chunk = %i / %i" % (tr_data, ck + 1, N_ck_tr))
-
-                # getting the next chunk
-                next_config_file = cfg_file_list[op_counter]
-
-                # run chunk processing
-                [data_name, data_set, data_end_index, fea_dict, lab_dict, arch_dict] = run_nn(
-                    data_name,
-                    data_set,
-                    data_end_index,
-                    fea_dict,
-                    lab_dict,
-                    arch_dict,
-                    config_chunk_file,
-                    processed_first,
-                    next_config_file,
-                )
-
-                # update the first_processed variable
-                processed_first = False
-
-                if not (os.path.exists(info_file)):
-                    sys.stderr.write(
-                        "ERROR: training epoch %i, chunk %i not done! File %s does not exist.\nSee %s \n"
-                        % (ep, ck, info_file, log_file)
-                    )
-                    sys.exit(0)
-
-            # update the operation counter
-            op_counter += 1
-
-            # update pt_file (used to initialized the DNN for the next chunk)
-            for pt_arch in pt_files.keys():
-                pt_files[pt_arch] = (
-                    out_folder
-                    + "/exp_files/train_"
-                    + tr_data
-                    + "_ep"
-                    + format(ep, N_ep_str_format)
-                    + "_ck"
-                    + format(ck, N_ck_str_format)
-                    + "_"
-                    + pt_arch
-                    + ".pkl"
-                )
-
-            # remove previous pkl files
-            if len(model_files_past.keys()) > 0:
-                for pt_arch in pt_files.keys():
-                    if os.path.exists(model_files_past[pt_arch]):
-                        os.remove(model_files_past[pt_arch])
-
-            if do_validation_after_chunk(ck, N_ck_tr, config):
-                if not _is_first_validation(ep,ck, N_ck_tr, config):
-                    valid_peformance_dict_prev = valid_peformance_dict
-                valid_peformance_dict = {}
-                for valid_data in valid_data_lst:
-                    N_ck_valid = compute_n_chunks(out_folder, valid_data, ep, N_ep_str_format, "valid")
-                    N_ck_str_format_val = "0" + str(max(math.ceil(np.log10(N_ck_valid)), 1)) + "d"
-                    for ck_val in range(N_ck_valid):
-                        info_file = get_val_info_file_path(
-                            out_folder,
-                            valid_data,
-                            ep,
-                            ck,
-                            ck_val,
-                            N_ep_str_format,
-                            N_ck_str_format,
-                            N_ck_str_format_val,
-                        )
-                        config_chunk_file = get_val_cfg_file_path(
-                            out_folder,
-                            valid_data,
-                            ep,
-                            ck,
-                            ck_val,
-                            N_ep_str_format,
-                            N_ck_str_format,
-                            N_ck_str_format_val,
-                        )
-                        if not (os.path.exists(info_file)):
-                            print("Validating %s chunk = %i / %i" % (valid_data, ck_val + 1, N_ck_valid))
-                            next_config_file = cfg_file_list[op_counter]
-                            data_name, data_set, data_end_index, fea_dict, lab_dict, arch_dict = run_nn(
-                                data_name,
-                                data_set,
-                                data_end_index,
-                                fea_dict,
-                                lab_dict,
-                                arch_dict,
-                                config_chunk_file,
-                                processed_first,
-                                next_config_file,
-                            )
-                            processed_first = False
-                            if not (os.path.exists(info_file)):
-                                sys.stderr.write(
-                                    "ERROR: validation on epoch %i, chunk %i, valid chunk %i of dataset %s not done! File %s does not exist.\nSee %s \n"
-                                    % (ep, ck, ck_val, valid_data, info_file, log_file)
-                                )
-                                sys.exit(0)
-                        op_counter += 1
-                    valid_info_lst = sorted(
-                        glob.glob(
-                            get_val_info_file_path(
-                                out_folder,
-                                valid_data,
-                                ep,
-                                ck,
-                                None,
-                                N_ep_str_format,
-                                N_ck_str_format,
-                                N_ck_str_format_val,
-                            )
-                        )
-                    )
-                    valid_loss, valid_error, valid_time = compute_avg_performance(valid_info_lst)
-                    valid_peformance_dict[valid_data] = [valid_loss, valid_error, valid_time]
-                    val_time_tot += valid_time
-                if not _is_first_validation(ep,ck, N_ck_tr, config):
-                    err_valid_mean = np.mean(np.asarray(list(valid_peformance_dict.values()))[:, 1])
-                    err_valid_mean_prev = np.mean(np.asarray(list(valid_peformance_dict_prev.values()))[:, 1])
-                    for lr_arch in lr.keys():
-                        if ep < N_ep - 1 and auto_lr_annealing[lr_arch]:
-                            if ((err_valid_mean_prev - err_valid_mean) / err_valid_mean) < improvement_threshold[
-                                lr_arch
-                            ]:
-                                new_lr_value = float(lr[lr_arch][ep]) * halving_factor[lr_arch]
-                                for i in range(ep + 1, N_ep):
-                                    lr[lr_arch][i] = str(new_lr_value)
-
-        # Training Loss and Error
-        tr_info_lst = sorted(
-            glob.glob(out_folder + "/exp_files/train_" + tr_data + "_ep" + format(ep, N_ep_str_format) + "*.info")
-        )
-        [tr_loss, tr_error, tr_time] = compute_avg_performance(tr_info_lst)
-
-        tr_loss_tot = tr_loss_tot + tr_loss
-        tr_error_tot = tr_error_tot + tr_error
-        tr_time_tot = tr_time_tot + tr_time
-        tot_time = tr_time + val_time_tot
-
-    # Print results in both res_file and stdout
-    dump_epoch_results(
-        res_file_path,
-        ep,
-        tr_data_lst,
-        tr_loss_tot,
-        tr_error_tot,
-        tot_time,
-        valid_data_lst,
-        valid_peformance_dict,
-        lr,
-        N_ep,
-    )
-
-# Training has ended, copy the last .pkl to final_arch.pkl for production
-for pt_arch in pt_files.keys():
-    if os.path.exists(model_files[pt_arch]) and not os.path.exists(out_folder + "/exp_files/final_" + pt_arch + ".pkl"):
-        copyfile(model_files[pt_arch], out_folder + "/exp_files/final_" + pt_arch + ".pkl")
-
-
 # --------FORWARD--------#
+ep = N_ep-1 # KMC modification
 for forward_data in forward_data_lst:
 
     # Compute the number of chunks
@@ -451,6 +232,7 @@ for forward_data in forward_data_lst:
             + format(ck, N_ck_str_format)
             + ".cfg"
         )
+
 
         # Do forward if the chunk was not already processed
         if not (os.path.exists(info_file)):
@@ -590,7 +372,6 @@ for data in forward_data_lst:
             out_dec_folder = out_folder + "/decode_" + data + "_" + forward_outs[k]
 
             if not (os.path.exists(info_file)):
-
                 # Run the decoder
                 cmd_decode = (
                     cmd
@@ -605,13 +386,14 @@ for data in forward_data_lst:
                     + files_dec
                     + '"'
                 )
+                print(cmd_decode)
                 run_shell(cmd_decode, log_file)
 
                 # remove ark files if needed
-                if not forward_save_files[k]:
-                    list_rem = glob.glob(files_dec)
-                    for rem_ark in list_rem:
-                        os.remove(rem_ark)
+                #if not forward_save_files[k]:
+                #    list_rem = glob.glob(files_dec)
+                #    for rem_ark in list_rem:
+                #        os.remove(rem_ark)
 
             # Print WER results and write info file
             cmd_res = "./check_res_dec.sh " + out_dec_folder
@@ -620,6 +402,35 @@ for data in forward_data_lst:
             res_file.write("%s\n" % wers)
             print(wers)
 
-# Saving Loss and Err as .txt and plotting curves
-if not is_production:
-    create_curves(out_folder, N_ep, valid_data_lst)
+# -----RENAME FILES/DIR TO SUIT CONDITION----- #
+# KMC modification
+# Determine condition from config file
+temp = re.split('=|\n', config["dataset3"]["fea"])
+fea_name = temp[temp.index("fea_name")+1]
+fea_lst = temp[temp.index("fea_lst")+1]
+temp2 = fea_lst.split("/")
+
+if "dp" in fea_lst:
+    condition = temp2[-2] + "_dp"
+else:
+    condition = temp2[-2]
+
+# Renaming files using test condition name
+out_dec_folder_new = out_dec_folder.replace("test", condition)
+config_dec_file_new = config_dec_file.replace("test", condition)
+config_chunk_file_new = config_chunk_file.replace("test", condition)
+info_file_new = config_chunk_file_new.replace(".cfg", ".info")
+
+lst_file = config_chunk_file.replace(".cfg", "_" + fea_name + ".lst")
+lst_file_new = config_chunk_file_new.replace(".cfg", "_" + fea_name + ".lst")
+
+os.rename(out_dec_folder, out_dec_folder_new)
+os.rename(config_dec_file, config_dec_file_new)
+os.rename(config_chunk_file, config_chunk_file_new)
+os.rename(info_file_new.replace(condition, "test"), info_file_new)
+os.rename(lst_file, lst_file_new)
+
+# Moving conf.cfg and decoding cfg file to condition-specific directory
+import shutil
+shutil.move(config_dec_file_new, out_dec_folder_new)
+shutil.move(out_folder + "/conf.cfg", out_dec_folder_new)

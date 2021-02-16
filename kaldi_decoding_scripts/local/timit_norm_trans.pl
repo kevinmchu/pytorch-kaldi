@@ -20,6 +20,8 @@
 # extracted in a format where each line contains an utterance ID followed by 
 # the transcript, e.g.:
 # fcke0_si1111 h# hh ah dx ux w iy dcl d ix f ay n ih q h#
+#
+# Modified: Kevin Chu, 1/3/20
 
 my $usage = "Usage: timit_norm_trans.pl -i transcript -m phone_map -from [60|48] -to [48|39] > normalized\n
 Normalizes phonetic transcriptions for TIMIT, by mapping the phones to a 
@@ -44,7 +46,7 @@ die $usage unless(defined($in_trans) && defined($phone_map) &&
 if ($num_phones_in != 60 && $num_phones_in != 48) {
   die "Can only used 60 or 48 for -from (used $num_phones_in)."
 }
-if ($num_phones_out != 48 && $num_phones_out != 39) {
+if ($num_phones_out != 48 && $num_phones_out != 40) {
   die "Can only used 48 or 39 for -to (used $num_phones_out)."
 }
 unless ($num_phones_out < $num_phones_in) {
